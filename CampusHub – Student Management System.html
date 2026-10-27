@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CampusHub – Student Management System</title>
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<style>
+:root{--bg:#f1f5f9;--card:#fff;--fg:#0f172a;--mut:#64748b;--bd:#e2e8f0;--soft:#eef2ff;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0b1020;--card:#151b2e;--fg:#e2e8f0;--mut:#94a3b8;--bd:#25304a;--soft:#1e2547}}
+:root[data-theme="dark"]{--bg:#0b1020;--card:#151b2e;--fg:#e2e8f0;--mut:#94a3b8;--bd:#25304a;--soft:#1e2547}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{background:var(--bg);color:var(--fg);font-family:Inter,ui-sans-serif,system-ui,sans-serif;margin:0}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:1rem;padding:1.25rem;box-shadow:0 1px 2px rgba(15,23,42,.04)}
+.mut{color:var(--mut)}.bd{border-color:var(--bd)}.soft{background:var(--soft)}
+.nav{display:flex;align-items:center;gap:.6rem;padding:.6rem .9rem;border-radius:.75rem;color:var(--mut);font-weight:500;font-size:.9rem;white-space:nowrap;cursor:pointer;border:0;background:none;text-align:left}
+.nav:hover{background:var(--soft)}.nav.on{background:#4f46e5;color:#fff}
+.btn{background:#4f46e5;color:#fff;border-radius:.75rem;padding:.65rem 1rem;font-weight:600;width:100%;border:0;cursor:pointer}.btn:hover{background:#4338ca}
+.inp{width:100%;padding:.65rem .85rem;border-radius:.75rem;border:1px solid var(--bd);background:var(--card);color:var(--fg);outline:none}.inp:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.2)}
+.bar{height:.5rem;border-radius:9999px;background:var(--bd);overflow:hidden}.bar>i{display:block;height:100%;border-radius:9999px}
+table{width:100%;border-collapse:collapse;font-size:.875rem}th{text-align:left;color:var(--mut);font-weight:500;padding:.5rem .6rem}td{padding:.65rem .6rem;border-top:1px solid var(--bd)}
+.wrap{overflow-x:auto}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+// ---------- Mock data ----------
+const USERS={CS21B042:{pw:'student123'}};
+const ME={name:'Aarav Sharma',roll:'CS21B042',dept:'Computer Science & Engineering',program:'B.Tech',sem:5,email:'aarav.sharma@campus.edu',cgpa:8.12};
+const SUBJ=[
+ {n:'Data Structures',c:'CS301',att:38,tot:44,mid:41,end:78,dept:71,weak:[]},
+ {n:'Database Systems',c:'CS302',att:30,tot:42,mid:36,end:71,dept:68,weak:['Normalization (BCNF)']},
+ {n:'Operating Systems',c:'CS303',att:26,tot:40,mid:28,end:58,dept:66,weak:['Deadlocks','Virtual memory']},
+ {n:'Computer Networks',c:'CS304',att:33,tot:41,mid:39,end:82,dept:70,weak:[]},
+ {n:'Discrete Mathematics',c:'MA305',att:24,tot:38,mid:30,end:52,dept:64,weak:['Graph theory','Recurrence relations']}
+];
+const PEERS=[['Ishita Rao',88],['Kabir Mehta',84],['Neha Verma',80],['Rohan Das',74],['Sara Khan',72],['Vikram Singh',69],['Ananya Iyer',66],['Dev Patel',61],['Meera Nair',57]];
+const pct=s=>Math.round((s.mid+s.end)/150*100);
+const attp=s=>Math.round(s.att/s.tot*100);
+const grade=p=>p>=90?'O':p>=80?'A+':p>=70?'A':p>=60?'B':p>=50?'C':'F';
+const avg=a=>Math.round(a.reduce((x,y)=>x+y,0)/a.length);
+const myAvg=avg(SUBJ.map(pct)), deptAvg=avg(SUBJ.map(s=>s.dept));
+const board=[...PEERS,[ME.name,myAvg]].sort((a,b)=>b[1]-a[1]);
+const rank=board.findIndex(r=>r[0]===ME.name)+1;
+const col=p=>p<75?'#ef4444':p<85?'#f59e0b':'#10b981';
+let S={user:null,tab:'overview',err:''};
+const TABS=[['overview','🏠','Overview'],['attendance','📅','Attendance'],['marks','📝','Marks & Insights'],['leaderboard','🏆','Leaderboard'],['faculty','🧑‍🏫','Faculty & Blocks']];
+
+// ---------- Helpers ----------
+function ring(p,size=96,c=col(p)){const r=40,L=2*Math.PI*r;return `<svg width="${size}" height="${size}" viewBox="0 0 100 100"><circle cx="50" cy="50" r="${r}" fill="none" stroke="var(--bd)" stroke-width="10"/><circle cx="50" cy="50" r="${r}" fill="none" stroke="${c}" stroke-width="10" stroke-linecap="round" stroke-dasharray="${L*p/100} ${L}" transform="rotate(-90 50 50)"/><text x="50" y="56" text-anchor="middle" font-size="20" font-weight="700" fill="var(--fg)">${p}%</text></svg>`}
+const bar=(p,c=col(p))=>`<div class="bar"><i style="width:${p}%;background:${c}"></i></div>`;
+const stat=(l,v,s='')=>`<div class="card"><div class="mut text-sm">${l}</div><div class="text-2xl font-bold mt-1">${v}</div><div class="mut text-xs mt-1">${s}</div></div>`;
+const head=(t,s)=>`<div class="mb-5"><h1 class="text-2xl font-bold">${t}</h1><p class="mut text-sm">${s}</p></div>`;
+
+// ---------- Views ----------
+function loginView(){return `<div class="min-h-screen flex items-center justify-center p-4" style="background:linear-gradient(135deg,#312e81,#4f46e5 55%,#818cf8)">
+<div class="card w-full max-w-md" style="padding:2rem">
+<div class="text-center mb-6"><div class="text-4xl">🎓</div><h1 class="text-2xl font-bold mt-2">CampusHub</h1><p class="mut text-sm">Student Management System · Sign in</p></div>
+<form onsubmit="login(event)" class="space-y-4">
+<div><label class="text-sm font-medium">Roll number</label><input id="u" class="inp mt-1" value="CS21B042" autocomplete="username"></div>
+<div><label class="text-sm font-medium">Password</label><input id="p" type="password" class="inp mt-1" value="student123" autocomplete="current-password"></div>
+${S.err?`<div class="text-sm rounded-lg p-2" style="background:#fee2e2;color:#b91c1c">${S.err}</div>`:''}
+<button class="btn">Sign in</button></form>
+<p class="mut text-xs text-center mt-4">Demo: CS21B042 / student123</p></div></div>`}
+
+function overview(){const low=SUBJ.filter(s=>attp(s)<75).length;const tA=SUBJ.reduce((a,s)=>a+s.att,0),tT=SUBJ.reduce((a,s)=>a+s.tot,0);
+return head('Welcome back, '+ME.name.split(' ')[0]+' 👋','Here is your academic snapshot for Semester '+ME.sem)+`
+<div class="card flex flex-col sm:flex-row gap-4 items-start sm:items-center mb-4" style="background:linear-gradient(120deg,#4f46e5,#6366f1);color:#fff;border:0">
+<div class="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold" style="background:rgba(255,255,255,.2)">${ME.name.split(' ').map(x=>x[0]).join('')}</div>
+<div class="flex-1"><div class="text-xl font-bold">${ME.name}</div><div class="text-sm opacity-90">${ME.email}</div></div>
+<div class="grid grid-cols-2 gap-x-8 gap-y-1 text-sm"><span class="opacity-80">Roll No</span><b>${ME.roll}</b><span class="opacity-80">Program</span><b>${ME.program}</b><span class="opacity-80">Semester</span><b>${ME.sem}</b><span class="opacity-80">Department</span><b>CSE</b></div></div>
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+${stat('CGPA',ME.cgpa,'Out of 10')}${stat('Overall attendance',Math.round(tA/tT*100)+'%',tA+' of '+tT+' classes')}${stat('Average score',myAvg+'%','Dept avg '+deptAvg+'%')}${stat('Dept rank','#'+rank,'of '+board.length+' students')}</div>
+<div class="grid lg:grid-cols-2 gap-4">
+<div class="card"><h3 class="font-semibold mb-3">Alerts</h3>${low?`<div class="rounded-xl p-3 text-sm" style="background:#fef3c7;color:#92400e">⚠️ Low attendance (&lt;75%) in <b>${low}</b> subject${low>1?'s':''}. Check the Attendance tab.</div>`:'<div class="text-sm">All good!</div>'}
+<div class="rounded-xl p-3 text-sm mt-2 soft">💡 AI insights available for ${SUBJ.filter(s=>s.weak.length).length} subjects.</div></div>
+<div class="card"><h3 class="font-semibold mb-3">Subject snapshot</h3><div class="space-y-3">${SUBJ.map(s=>`<div><div class="flex justify-between text-sm mb-1"><span>${s.n}</span><span class="mut">${pct(s)}% · ${grade(pct(s))}</span></div>${bar(pct(s),'#6366f1')}</div>`).join('')}</div></div></div>`}
+
+function attendance(){return head('Attendance Tracker','Classes attended vs missed per subject. Minimum required: 75%')+`<div class="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">${SUBJ.map(s=>{const p=attp(s),miss=s.tot-s.att,need=Math.max(0,Math.ceil((0.75*s.tot-s.att)/0.25));
+return `<div class="card"><div class="flex items-center gap-4">${ring(p)}<div class="min-w-0"><div class="font-semibold">${s.n}</div><div class="mut text-xs">${s.c}</div><div class="text-sm mt-2">✅ ${s.att} attended</div><div class="text-sm">❌ ${miss} missed</div></div></div>
+${p<75?`<div class="rounded-lg p-2 mt-3 text-xs" style="background:#fee2e2;color:#b91c1c">⚠️ Below 75%. Attend the next <b>${need}</b> classes in a row to recover.</div>`:`<div class="rounded-lg p-2 mt-3 text-xs" style="background:#d1fae5;color:#047857">✔ On track. You can miss ${Math.floor(s.att/0.75-s.tot)} more class(es).</div>`}</div>`}).join('')}</div>`}
+
+function marks(){const weak=SUBJ.filter(s=>s.weak.length).sort((a,b)=>pct(a)-pct(b));
+return head('Marks & Performance','Mid-Term (50) and End-Term (100) results with AI-powered analysis')+`
+<div class="card mb-4"><div class="wrap"><table><thead><tr><th>Subject</th><th>Mid-Term /50</th><th>End-Term /100</th><th>Total</th><th>Grade</th></tr></thead><tbody>${SUBJ.map(s=>{const p=pct(s);return `<tr><td><b>${s.n}</b><div class="mut text-xs">${s.c}</div></td><td>${s.mid}</td><td>${s.end}</td><td style="min-width:130px">${p}%${bar(p,col(p+10))}</td><td><span class="px-2 py-1 rounded-lg text-xs font-bold" style="background:${p<60?'#fee2e2':'var(--soft)'};color:${p<60?'#b91c1c':'#4f46e5'}">${grade(p)}</span></td></tr>`}).join('')}</tbody></table></div></div>
+<div class="card" style="border-color:#818cf8"><div class="flex items-center gap-2 mb-3"><span class="text-xl">✨</span><h3 class="font-semibold">AI Insights</h3></div>
+<div class="grid md:grid-cols-2 gap-3">${weak.map(s=>`<div class="rounded-xl p-4 soft"><div class="font-semibold text-sm">${s.n} <span class="mut font-normal">· ${pct(s)}% (dept ${s.dept}%)</span></div>
+<div class="text-xs mt-2 mut">Weak topics</div><div class="flex flex-wrap gap-1 mt-1">${s.weak.map(w=>`<span class="px-2 py-0.5 rounded-full text-xs" style="background:#fee2e2;color:#b91c1c">${w}</span>`).join('')}</div>
+<div class="text-xs mt-3 mut">Suggestion</div><div class="text-sm">${pct(s)<dept(s)?`You trail the department by ${s.dept-pct(s)} pts. `:''}Spend 3 focused sessions/week on ${s.weak[0]}, solve past papers, and attend the next doubt-clearing class.${attp(s)<75?' Improving attendance will also help.':''}</div></div>`).join('')}</div>
+<p class="mut text-xs mt-3">Strongest: ${[...SUBJ].sort((a,b)=>pct(b)-pct(a))[0].n}. Keep it up!</p></div>`}
+const dept=s=>s.dept;
+
+function leaderboard(){return head('Departmental Performance','How you compare with CSE Semester '+ME.sem+' peers')+`
+<div class="grid sm:grid-cols-3 gap-4 mb-4">${stat('Your rank','#'+rank,'of '+board.length)}${stat('Your average',myAvg+'%','')}${stat('Dept average',deptAvg+'%',myAvg>=deptAvg?'You are +'+(myAvg-deptAvg)+' above':'You are '+(deptAvg-myAvg)+' below')}</div>
+<div class="grid lg:grid-cols-2 gap-4">
+<div class="card"><h3 class="font-semibold mb-4">You vs department average</h3><div class="space-y-4">${SUBJ.map(s=>`<div><div class="text-sm mb-1">${s.n}</div><div class="flex items-center gap-2 text-xs"><span class="w-10 mut">You</span><div class="flex-1">${bar(pct(s),'#4f46e5')}</div><b class="w-8">${pct(s)}</b></div><div class="flex items-center gap-2 text-xs mt-1"><span class="w-10 mut">Dept</span><div class="flex-1">${bar(s.dept,'#94a3b8')}</div><b class="w-8">${s.dept}</b></div></div>`).join('')}</div></div>
+<div class="card"><h3 class="font-semibold mb-3">Leaderboard</h3><table><thead><tr><th>#</th><th>Student</th><th>Avg</th></tr></thead><tbody>${board.map((r,i)=>{const me=r[0]===ME.name;return `<tr style="${me?'background:var(--soft);font-weight:700':''}"><td>${i<3?['🥇','🥈','🥉'][i]:i+1}</td><td>${me?r[0]+' (You)':r[0]}</td><td>${r[1]}%</td></tr>`}).join('')}</tbody></table></div></div>`}
+
+function appView(){const v={overview,attendance,marks,leaderboard,faculty}[S.tab]();
+return `<div class="md:flex min-h-screen">
+<aside class="md:w-64 md:fixed md:inset-y-0 p-3 md:p-4 card" style="border-radius:0;border-width:0 1px 0 0">
+<div class="flex items-center justify-between md:block">
+<div class="flex items-center gap-2 md:mb-6 px-1"><span class="text-2xl">🎓</span><b class="text-lg">CampusHub</b></div>
+<button class="nav md:hidden" onclick="logout()">Logout</button></div>
+<nav class="flex md:flex-col gap-1 overflow-x-auto mt-2 md:mt-0">${TABS.map(t=>`<button class="nav ${S.tab===t[0]?'on':''}" onclick="go('${t[0]}')"><span>${t[1]}</span>${t[2]}</button>`).join('')}</nav>
+<div class="hidden md:block absolute bottom-4 left-4 right-4"><div class="flex items-center gap-2 mb-3"><div class="w-9 h-9 rounded-full soft flex items-center justify-center font-bold text-indigo-600">AS</div><div class="text-sm leading-tight"><b>${ME.name}</b><div class="mut text-xs">${ME.roll}</div></div></div><button class="nav w-full" onclick="logout()">↩ Logout</button></div>
+</aside>
+<main class="flex-1 md:ml-64 p-4 md:p-8 max-w-6xl">${v}</main></div>`}
+
+// ---------- Faculty ----------
+const DEPT_BLOCK={block:'Academic Block A (Turing Block)',floors:'2nd & 3rd Floor',hod:'Dr. Kavita Menon',hodCabin:'A-301',office:'Mon–Fri, 9:00 AM – 5:00 PM'};
+const FAC=[
+ {c:'CS301',name:'Dr. Rajesh Kumar',g:'M',role:'Professor',cabin:'A-204',block:'Academic Block A',floor:'2nd Floor',email:'rajesh.kumar@campus.edu',hours:'Mon & Wed, 3–4 PM'},
+ {c:'CS302',name:'Dr. Priya Nair',g:'F',role:'Associate Professor',cabin:'A-212',block:'Academic Block A',floor:'2nd Floor',email:'priya.nair@campus.edu',hours:'Tue & Thu, 11 AM–12 PM'},
+ {c:'CS303',name:'Prof. Sanjay Gupta',g:'M',role:'Assistant Professor',cabin:'A-305',block:'Academic Block A',floor:'3rd Floor',email:'sanjay.gupta@campus.edu',hours:'Wed & Fri, 2–3 PM'},
+ {c:'CS304',name:'Dr. Meenakshi Rao',g:'F',role:'Associate Professor',cabin:'A-308',block:'Academic Block A',floor:'3rd Floor',email:'meenakshi.rao@campus.edu',hours:'Mon & Thu, 10–11 AM'},
+ {c:'MA305',name:'Dr. Anil Joshi',g:'M',role:'Professor',cabin:'C-110',block:'Science Block C',floor:'1st Floor',email:'anil.joshi@campus.edu',hours:'Tue & Fri, 1–2 PM'}
+];
+const DAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const FREE={
+ CS301:[['Mon','15:00','16:00'],['Wed','15:00','16:00'],['Fri','11:00','12:00']],
+ CS302:[['Tue','11:00','12:00'],['Thu','11:00','12:00'],['Fri','14:00','15:00']],
+ CS303:[['Mon','10:00','11:00'],['Wed','14:00','15:00'],['Fri','14:00','15:00']],
+ CS304:[['Mon','10:00','11:00'],['Tue','15:00','16:00'],['Thu','10:00','11:00']],
+ MA305:[['Tue','13:00','14:00'],['Wed','11:00','12:00'],['Fri','13:00','14:00']]
+};
+const tm=s=>{const a=s.split(':');return +a[0]*60+ +a[1]};
+const fmt12=m=>{const h=Math.floor(m/60);return ((h+11)%12+1)+':'+String(m%60).padStart(2,'0')+(h<12?' AM':' PM')};
+const slotTxt=s=>s[0]+' '+fmt12(tm(s[1]))+'–'+fmt12(tm(s[2]));
+function status(code){const n=new Date(),d=n.getDay(),m=n.getHours()*60+n.getMinutes(),sl=FREE[code];
+ const free=sl.some(s=>DAYS.indexOf(s[0])===d&&tm(s[1])<=m&&m<tm(s[2]));
+ const off=s=>{let o=((DAYS.indexOf(s[0])-d+7)%7)*1440+tm(s[1])-m;return o<=0?o+10080:o};
+ const next=[...sl].sort((a,b)=>off(a)-off(b))[0];return {free,next}}
+function freeBlock(f){const st=status(f.c);
+ return `<div class="rounded-xl p-3 mt-3 text-sm" style="background:${st.free?'#d1fae5':'var(--soft)'};color:${st.free?'#047857':'var(--fg)'}"><b>${st.free?'🟢 Free now — go to Cabin '+f.cabin:'🔴 Busy right now'}</b><div class="text-xs mt-1">Next free: ${slotTxt(st.next)} → Cabin ${f.cabin}, ${f.floor}</div></div><div class="mt-2 text-xs mut">Free slots (visit in these times)</div><div class="flex flex-wrap gap-1 mt-1">${FREE[f.c].map(s=>`<span class="px-2 py-0.5 rounded-full text-xs soft" style="color:#4f46e5">${slotTxt(s)}</span>`).join('')}</div>`}
+function faculty(){const D=DEPT_BLOCK;
+return head('Faculty & Academic Blocks','Who teaches you, where their cabins are, and when to meet them')+`
+<div class="card mb-4" style="background:linear-gradient(120deg,#4f46e5,#6366f1);color:#fff;border:0">
+<div class="text-xs opacity-80">YOUR DEPARTMENT · CSE</div><div class="text-xl font-bold mt-1">🏛️ ${D.block}</div>
+<div class="grid sm:grid-cols-3 gap-3 mt-3 text-sm"><div><span class="opacity-80">Floors</span><br><b>${D.floors}</b></div><div><span class="opacity-80">HOD</span><br><b>${D.hod} · Cabin ${D.hodCabin}</b></div><div><span class="opacity-80">Dept office</span><br><b>${D.office}</b></div></div></div>
+<div class="card mb-4"><h3 class="font-semibold mb-2">🕒 Who can you meet right now?</h3>${FAC.filter(f=>status(f.c).free).map(f=>`<div class="text-sm">🟢 <b>${f.name}</b> (${f.g==='F'?'She':'He'}) — Cabin ${f.cabin}, ${f.block}, ${f.floor}</div>`).join('')||'<div class="text-sm mut">Nobody is free at this moment. Check the next free slot on each card below.</div>'}</div>
+<div class="grid md:grid-cols-2 xl:grid-cols-3 gap-4">${FAC.map(f=>{const s=SUBJ.find(x=>x.c===f.c);return `<div class="card">
+<div class="flex items-center gap-3"><div class="w-12 h-12 rounded-full soft flex items-center justify-center text-2xl">${f.g==='F'?'👩‍🏫':'👨‍🏫'}</div>
+<div class="min-w-0"><div class="font-semibold">${f.name}</div><div class="mut text-xs">${f.role} · ${f.g==='F'?'She/Her':'He/Him'}</div></div></div>
+<div class="mt-3 text-sm"><span class="px-2 py-0.5 rounded-full text-xs soft" style="color:#4f46e5">${f.c} · ${s.n}</span></div>
+<div class="grid grid-cols-2 gap-2 mt-3 text-sm"><div class="rounded-xl p-2 soft"><div class="mut text-xs">Cabin</div><b>${f.cabin}</b></div><div class="rounded-xl p-2 soft"><div class="mut text-xs">Floor</div><b>${f.floor}</b></div></div>
+<div class="text-sm mt-3">📍 ${f.block}</div><div class="text-sm mt-1">🕒 ${f.hours}</div>${freeBlock(f)}<div class="text-sm mt-1 break-all">✉️ ${f.email}</div></div>`}).join('')}</div>`}
+
+// ---------- Actions ----------
+function render(){document.getElementById('app').innerHTML=S.user?appView():loginView()}
+function login(e){e.preventDefault();const u=document.getElementById('u').value.trim().toUpperCase(),p=document.getElementById('p').value;
+if(!u||!p){S.err='Please enter both roll number and password.'}else if(USERS[u]&&USERS[u].pw===p){S.user=u;S.err='';S.tab='overview'}else{S.err='Invalid roll number or password.'}render()}
+function logout(){S.user=null;render()}
+function go(t){S.tab=t;render();window.scrollTo(0,0)}
+render();
+</script>
+</body>
+</html>

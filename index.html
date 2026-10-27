@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CampusHub – Student Management System</title>
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<style>
+:root{
+  --bg:#f8fafc;
+  --card:#ffffff;
+  --fg:#0f172a;
+  --mut:#64748b;
+  --bd:#e2e8f0;
+  --soft:#f1f5f9;
+  --primary:#4f46e5;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px)
+}
+@media(prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0b1020;
+    --card:#151b2e;
+    --fg:#e2e8f0;
+    --mut:#94a3b8;
+    --bd:#25304a;
+    --soft:#1e2547;
+    --primary:#6366f1
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0b1020;
+  --card:#151b2e;
+  --fg:#e2e8f0;
+  --mut:#94a3b8;
+  --bd:#25304a;
+  --soft:#1e2547;
+  --primary:#6366f1
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{background:var(--bg);color:var(--fg);font-family:Inter,ui-sans-serif,system-ui,sans-serif;margin:0}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:0.875rem;padding:1.25rem;box-shadow:0 1px 3px rgba(15,23,42,.05)}
+.mut{color:var(--mut)}.bd{border-color:var(--bd)}.soft{background:var(--soft)}
+.nav{display:flex;align-items:center;gap:.6rem;padding:.65rem .95rem;border-radius:.75rem;color:var(--mut);font-weight:500;font-size:.9rem;white-space:nowrap;cursor:pointer;border:0;background:none;text-align:left;transition:all .15s}
+.nav:hover{background:var(--soft);color:var(--fg)}.nav.on{background:var(--primary);color:#fff}
+.btn{background:var(--primary);color:#fff;border-radius:.75rem;padding:.65rem 1rem;font-weight:600;width:100%;border:0;cursor:pointer;transition:opacity .15s}.btn:hover{opacity:.92}
+.inp{width:100%;padding:.65rem .85rem;border-radius:.75rem;border:1px solid var(--bd);background:var(--card);color:var(--fg);outline:none;transition:border-color .15s}.inp:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(99,102,241,.18)}
+
+/* Strict Professional Table Styling */
+table{width:100%;border-collapse:collapse;font-size:.875rem;line-height:1.35}
+th{color:var(--mut);font-weight:600;padding:.75rem .85rem;background:var(--soft);border-bottom:1px solid var(--bd);white-space:nowrap}
+td{padding:.75rem .85rem;border-top:1px solid var(--bd);vertical-align:middle}
+tfoot td{background:var(--soft);font-weight:700;border-top:2px solid var(--bd);color:var(--fg)}
+tr:hover td{background:rgba(99,102,241,.03)}
+tfoot tr:hover td{background:var(--soft)}
+.wrap{overflow-x:auto;border-radius:.75rem;border:1px solid var(--bd);background:var(--card)}
+
+/* Table Text Alignment Helpers */
+.txt-left{text-align:left}
+.txt-right{text-align:right;font-variant-numeric:tabular-nums}
+.txt-center{text-align:center}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+// ---------- Core Mock Data ----------
+const USERS = { CS21B042: { pw: 'student123' } };
+const ME = {
+  name: 'Aarav Sharma',
+  roll: 'CS21B042',
+  dept: 'Computer Science & Engineering',
+  program: 'B.Tech',
+  sem: 5,
+  email: 'aarav.sharma@campus.edu',
+  cgpa: 8.12
+};
+
+const SUBJ = [
+  { n: 'Data Structure and Algorithm', c: 'CS201', att: 38, tot: 44, mid: 45, end: 89, dept: 73, weak: ['Dynamic Programming'] },
+  { n: 'Principle of Management', c: 'MG201', att: 40, tot: 42, mid: 46, end: 92, dept: 76, weak: [] },
+  { n: 'Relational Database Management System', c: 'CSC2131', att: 42, tot: 44, mid: 48, end: 95, dept: 78, weak: [] },
+  { n: 'Object Oriented Programming', c: 'CS202', att: 36, tot: 40, mid: 44, end: 88, dept: 72, weak: ['Polymorphism & Templates'] },
+  { n: 'Computer Organization', c: 'CS203', att: 35, tot: 40, mid: 42, end: 84, dept: 70, weak: ['Pipelining Hazards'] },
+  { n: 'Statistics and Probability', c: 'MA201', att: 34, tot: 40, mid: 40, end: 82, dept: 69, weak: ['Bayes Theorem'] }
+];
+
+const PEERS = [
+  ['Ishita Rao', 88],
+  ['Kabir Mehta', 84],
+  ['Neha Verma', 80],
+  ['Rohan Das', 74],
+  ['Sara Khan', 72],
+  ['Vikram Singh', 69],
+  ['Ananya Iyer', 66],
+  ['Dev Patel', 61],
+  ['Meera Nair', 57]
+];
+
+// Calculations
+const pct = s => Math.round((s.mid + s.end) / 150 * 100);
+const attp = s => Math.round(s.att / s.tot * 100);
+const grade = p => p >= 90 ? 'O' : p >= 80 ? 'A+' : p >= 70 ? 'A' : p >= 60 ? 'B' : p >= 50 ? 'C' : 'F';
+const avg = a => Math.round(a.reduce((x, y) => x + y, 0) / a.length);
+const myAvg = avg(SUBJ.map(pct));
+const deptAvg = avg(SUBJ.map(s => s.dept));
+const board = [...PEERS, [ME.name, myAvg]].sort((a, b) => b[1] - a[1]);
+const rank = board.findIndex(r => r[0] === ME.name) + 1;
+
+// Totals across courses
+const totalAttended = SUBJ.reduce((sum, s) => sum + s.att, 0);
+const totalHeld = SUBJ.reduce((sum, s) => sum + s.tot, 0);
+const totalMissed = totalHeld - totalAttended;
+const overallAttPct = Math.round(totalAttended / totalHeld * 100);
+const totalMid = SUBJ.reduce((sum, s) => sum + s.mid, 0);
+const totalEnd = SUBJ.reduce((sum, s) => sum + s.end, 0);
+const totalMaxMid = SUBJ.length * 50;
+const totalMaxEnd = SUBJ.length * 100;
+const grandTotalScore = totalMid + totalEnd;
+const grandTotalMax = totalMaxMid + totalMaxEnd;
+const overallExamPct = Math.round(grandTotalScore / grandTotalMax * 100);
+
+let S = { user: null, tab: 'overview', err: '' };
+const TABS = [
+  ['overview', '🏠', 'Overview'],
+  ['attendance', '📅', 'Attendance'],
+  ['marks', '📝', 'Marks & Insights'],
+  ['leaderboard', '🏆', 'Leaderboard'],
+  ['faculty', '🧑‍🏫', 'Faculty & Blocks']
+];
+
+// ---------- Badges and Stat Helpers ----------
+const badge = (txt, bg, fg) => `<span class="inline-block px-2.5 py-0.5 rounded-md text-xs font-semibold" style="background:${bg};color:${fg}">${txt}</span>`;
+const statusBadge = p => p < 60 ? badge('Needs Focus', '#fee2e2', '#b91c1c') : p < 75 ? badge('Satisfactory', '#fef3c7', '#92400e') : badge('Proficient', '#d1fae5', '#047857');
+const stat = (l, v, s = '') => `<div class="card"><div class="mut text-sm">${l}</div><div class="text-2xl font-bold mt-1">${v}</div><div class="mut text-xs mt-1">${s}</div></div>`;
+const head = (t, s) => `<div class="mb-5"><h1 class="text-2xl font-bold">${t}</h1><p class="mut text-sm">${s}</p></div>`;
+
+// ---------- Views ----------
+
+function loginView() {
+  return `<div class="min-h-screen flex items-center justify-center p-4" style="background:linear-gradient(135deg,#312e81,#4f46e5 55%,#818cf8)">
+<div class="card w-full max-w-md" style="padding:2.25rem">
+  <div class="text-center mb-6">
+    <div class="text-4xl">🎓</div>
+    <h1 class="text-2xl font-bold mt-2">CampusHub</h1>
+    <p class="mut text-sm">Student Academic Management Portal</p>
+  </div>
+  <form onsubmit="login(event)" class="space-y-4">
+    <div>
+      <label class="text-sm font-medium">Roll Number</label>
+      <input id="u" class="inp mt-1" value="CS21B042" autocomplete="username">
+    </div>
+    <div>
+      <label class="text-sm font-medium">Password</label>
+      <input id="p" type="password" class="inp mt-1" value="student123" autocomplete="current-password">
+    </div>
+    ${S.err ? `<div class="text-sm rounded-lg p-2.5" style="background:#fee2e2;color:#b91c1c">${S.err}</div>` : ''}
+    <button class="btn">Sign In to Dashboard</button>
+  </form>
+  <p class="mut text-xs text-center mt-4">Demo Credentials: <b>CS21B042</b> / <b>student123</b></p>
+</div></div>`;
+}
+
+// 1. OVERVIEW VIEW
+function overview() {
+  const lowCount = SUBJ.filter(s => attp(s) < 75).length;
+
+  // Grade frequency counts (replaces Histogram/Pie Chart)
+  const gradeBuckets = [
+    { grade: 'A+ (80% - 89%)', min: 80, max: 89, desc: 'Excellent' },
+    { grade: 'A (70% - 79%)', min: 70, max: 79, desc: 'Very Good' },
+    { grade: 'C (50% - 59%)', min: 50, max: 59, desc: 'Needs Improvement' }
+  ];
+
+  return head('Welcome back, ' + ME.name.split(' ')[0] + ' 👋', 'Academic Performance Overview for Semester ' + ME.sem) + `
+<div class="card flex flex-col sm:flex-row gap-4 items-start sm:items-center mb-5" style="background:linear-gradient(120deg,#4f46e5,#6366f1);color:#fff;border:0">
+  <div class="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold" style="background:rgba(255,255,255,.2)">${ME.name.split(' ').map(x=>x[0]).join('')}</div>
+  <div class="flex-1">
+    <div class="text-xl font-bold">${ME.name}</div>
+    <div class="text-sm opacity-90">${ME.email}</div>
+  </div>
+  <div class="grid grid-cols-2 gap-x-8 gap-y-1 text-sm">
+    <span class="opacity-80">Roll Number</span><b>${ME.roll}</b>
+    <span class="opacity-80">Degree Program</span><b>${ME.program}</b>
+    <span class="opacity-80">Current Semester</span><b>Semester ${ME.sem}</b>
+    <span class="opacity-80">Department</span><b>CSE</b>
+  </div>
+</div>
+
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
+  ${stat('Cumulative CGPA', ME.cgpa, 'Scale of 10.00')}
+  ${stat('Overall Attendance', overallAttPct + '%', totalAttended + ' / ' + totalHeld + ' Classes')}
+  ${stat('Average Exam Score', myAvg + '%', 'Dept Cohort Avg: ' + deptAvg + '%')}
+  ${stat('Department Rank', '#' + rank, 'Out of ' + board.length + ' Enrolled Students')}
+</div>
+
+<!-- Table 1: Complete Academic Course Performance Table -->
+<div class="card mb-5">
+  <div class="flex items-center justify-between mb-3">
+    <div>
+      <h3 class="font-semibold text-base">📊 Semester Course Performance & Enrollment Data Table</h3>
+      <p class="mut text-xs">Summary of current academic standing across all registered courses</p>
+    </div>
+    <span class="text-xs mut">${SUBJ.length} Registered Courses</span>
+  </div>
+  <div class="wrap">
+    <table>
+      <thead>
+        <tr>
+          <th class="txt-center">Code</th>
+          <th class="txt-left">Course Title</th>
+          <th class="txt-right">Attended</th>
+          <th class="txt-right">Total Held</th>
+          <th class="txt-right">Attendance %</th>
+          <th class="txt-right">Mid-Term (/50)</th>
+          <th class="txt-right">End-Term (/100)</th>
+          <th class="txt-right">Total (/150)</th>
+          <th class="txt-right">Final %</th>
+          <th class="txt-center">Grade</th>
+          <th class="txt-center">Academic Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${SUBJ.map(s => {
+          const p = pct(s), a = attp(s), tot = s.mid + s.end;
+          return `<tr>
+            <td class="txt-center font-mono text-xs mut font-semibold">${s.c}</td>
+            <td class="txt-left"><b>${s.n}</b></td>
+            <td class="txt-right">${s.att}</td>
+            <td class="txt-right">${s.tot}</td>
+            <td class="txt-right font-semibold" style="color:${a < 75 ? '#dc2626' : '#16a34a'}">${a}%</td>
+            <td class="txt-right">${s.mid}</td>
+            <td class="txt-right">${s.end}</td>
+            <td class="txt-right font-semibold">${tot}</td>
+            <td class="txt-right font-bold">${p}%</td>
+            <td class="txt-center"><span class="px-2 py-0.5 rounded text-xs font-bold" style="background:${p < 60 ? '#fee2e2' : 'var(--soft)'};color:${p < 60 ? '#b91c1c' : '#4f46e5'}">${grade(p)}</span></td>
+            <td class="txt-center">${statusBadge(p)}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+      <tfoot>
+        <tr>
+          <td class="txt-center" colspan="2">Total / Overall Average</td>
+          <td class="txt-right">${totalAttended}</td>
+          <td class="txt-right">${totalHeld}</td>
+          <td class="txt-right" style="color:${overallAttPct < 75 ? '#dc2626' : '#16a34a'}">${overallAttPct}%</td>
+          <td class="txt-right">${totalMid} / ${totalMaxMid}</td>
+          <td class="txt-right">${totalEnd} / ${totalMaxEnd}</td>
+          <td class="txt-right">${grandTotalScore} / ${grandTotalMax}</td>
+          <td class="txt-right">${overallExamPct}%</td>
+          <td class="txt-center">${grade(overallExamPct)}</td>
+          <td class="txt-center">${statusBadge(overallExamPct)}</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+
+<!-- Table 2: Grade Distribution Frequency Table (Replaces Histogram / Donut Chart) -->
+<div class="grid lg:grid-cols-2 gap-5">
+  <div class="card">
+    <div class="flex items-center justify-between mb-3">
+      <div>
+        <h3 class="font-semibold text-base">📈 Course Grade Distribution Table</h3>
+        <p class="mut text-xs">Tabular breakdown of course outcomes by grade band</p>
+      </div>
+      <span class="text-xs mut">Outcome Distribution</span>
+    </div>
+    <div class="wrap">
+      <table>
+        <thead>
+          <tr>
+            <th class="txt-left">Grade Bracket</th>
+            <th class="txt-left">Classification</th>
+            <th class="txt-right">Subject Count</th>
+            <th class="txt-right">Share of Curriculum</th>
+            <th class="txt-left">Enrolled Courses</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="txt-left font-semibold">Grade A+ (80% - 89%)</td>
+            <td class="txt-left">${badge('Excellent', '#d1fae5', '#047857')}</td>
+            <td class="txt-right">1</td>
+            <td class="txt-right">20%</td>
+            <td class="txt-left text-xs">Computer Networks (81%)</td>
+          </tr>
+          <tr>
+            <td class="txt-left font-semibold">Grade A (70% - 79%)</td>
+            <td class="txt-left">${badge('Very Good', '#e0e7ff', '#3730a3')}</td>
+            <td class="txt-right">2</td>
+            <td class="txt-right">40%</td>
+            <td class="txt-left text-xs">Data Structures (79%), Database Systems (71%)</td>
+          </tr>
+          <tr>
+            <td class="txt-left font-semibold">Grade C (50% - 59%)</td>
+            <td class="txt-left">${badge('Needs Remediation', '#fee2e2', '#b91c1c')}</td>
+            <td class="txt-right">2</td>
+            <td class="txt-right">40%</td>
+            <td class="txt-left text-xs">Operating Systems (57%), Discrete Mathematics (55%)</td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr>
+            <td class="txt-left" colspan="2">Curriculum Total</td>
+            <td class="txt-right">5 Subjects</td>
+            <td class="txt-right">100%</td>
+            <td class="txt-left text-xs font-normal">All registered courses evaluated</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="flex items-center justify-between mb-3">
+      <div>
+        <h3 class="font-semibold text-base">🔔 Actionable Alerts & Institutional Notices</h3>
+        <p class="mut text-xs">Administrative status and recovery directives</p>
+      </div>
+    </div>
+    <div class="space-y-3">
+      ${lowCount > 0
+        ? `<div class="rounded-xl p-3.5 text-sm" style="background:#fee2e2;color:#991b1b;border:1px solid #fecaca">
+            <b>⚠️ Attendance Shortage Warning:</b> You are currently below the statutory 75% requirement in <b>${lowCount}</b> subjects (Operating Systems & Discrete Mathematics). See Attendance tab for recovery criteria.
+          </div>`
+        : `<div class="rounded-xl p-3.5 text-sm" style="background:#d1fae5;color:#065f46">
+            <b>✅ Attendance Compliant:</b> You meet all minimum institutional standards across all enrolled courses.
+          </div>`}
+      <div class="rounded-xl p-3.5 text-sm soft border bd">
+        <b>💡 AI Academic Diagnostic:</b> Specific learning gaps identified in <b>3</b> subjects. Dedicated remedial study plans are documented in the Marks & Insights section.
+      </div>
+      <div class="rounded-xl p-3.5 text-sm soft border bd">
+        <b>🏛️ Department Coordination:</b> Turing Block (Academic Block A), Cabin A-301. Office hours: Monday–Friday, 9:00 AM – 5:00 PM.
+      </div>
+    </div>
+  </div>
+</div>`;
+}
+
+// 2. ATTENDANCE VIEW (Replaces Circular Progress Charts & Meters)
+function attendance() {
+  const lowCount = SUBJ.filter(s => attp(s) < 75).length;
+
+  return head('Attendance Register & Regulatory Compliance', 'Course-by-course attendance audit with institutional 75% statutory compliance') + `
+<div class="grid sm:grid-cols-3 gap-4 mb-5">
+  ${stat('Total Held Classes', totalHeld, 'Semester to date across 5 subjects')}
+  ${stat('Total Attended Classes', totalAttended, overallAttPct + '% cumulative attendance rate')}
+  ${stat('Courses with Shortage', lowCount, lowCount > 0 ? lowCount + ' courses below mandatory 75%' : 'Full compliance across all courses')}
+</div>
+
+<div class="card">
+  <div class="flex items-center justify-between mb-4">
+    <div>
+      <h3 class="font-semibold text-base">📋 Course-Wise Attendance Audit Table</h3>
+      <p class="mut text-xs">Tabular attendance register replacing circular gauges with accurate counts and recovery targets</p>
+    </div>
+    <span class="text-xs mut">Institutional Threshold: 75.0%</span>
+  </div>
+  <div class="wrap">
+    <table>
+      <thead>
+        <tr>
+          <th class="txt-center">Course Code</th>
+          <th class="txt-left">Subject Title</th>
+          <th class="txt-right">Classes Held</th>
+          <th class="txt-right">Classes Attended</th>
+          <th class="txt-right">Classes Missed</th>
+          <th class="txt-right">Attendance Rate (%)</th>
+          <th class="txt-center">Statutory Status</th>
+          <th class="txt-left">Actionable Recovery & Margin Requirement</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${SUBJ.map(s => {
+          const p = attp(s);
+          const miss = s.tot - s.att;
+          const need = Math.max(0, Math.ceil((0.75 * s.tot - s.att) / 0.25));
+          const canMiss = Math.floor(s.att / 0.75 - s.tot);
+          const isLow = p < 75;
+          return `<tr style="${isLow ? 'background:rgba(254,226,226,0.25)' : ''}">
+            <td class="txt-center font-mono text-xs mut font-semibold">${s.c}</td>
+            <td class="txt-left"><b>${s.n}</b></td>
+            <td class="txt-right">${s.tot}</td>
+            <td class="txt-right font-semibold text-emerald-600">${s.att}</td>
+            <td class="txt-right ${miss > 10 ? 'font-semibold text-rose-600' : 'mut'}">${miss}</td>
+            <td class="txt-right font-bold" style="color:${isLow ? '#dc2626' : '#16a34a'}">${p}%</td>
+            <td class="txt-center">${isLow ? badge('Shortage (<75%)', '#fee2e2', '#b91c1c') : badge('Compliant (≥75%)', '#d1fae5', '#047857')}</td>
+            <td class="txt-left text-xs">${isLow ? `<span class="text-rose-700 font-semibold">⚠️ Must attend next <b>${need}</b> consecutive classes to recover</span>` : `<span class="text-slate-600">✔ Safe buffer: Can miss up to <b>${canMiss}</b> class(es)</span>`}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+      <tfoot>
+        <tr>
+          <td class="txt-center" colspan="2">Aggregate Academic Total / Average</td>
+          <td class="txt-right">${totalHeld}</td>
+          <td class="txt-right">${totalAttended}</td>
+          <td class="txt-right">${totalMissed}</td>
+          <td class="txt-right" style="color:${overallAttPct < 75 ? '#dc2626' : '#16a34a'}">${overallAttPct}%</td>
+          <td class="txt-center">${overallAttPct < 75 ? badge('Overall Deficit', '#fee2e2', '#b91c1c') : badge('Overall Compliant', '#d1fae5', '#047857')}</td>
+          <td class="txt-left text-xs font-normal">Semester cumulative aggregate across all registered courses</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>`;
+}
+
+// 3. MARKS & INSIGHTS VIEW (Replaces Grouped Bar, Stacked Bar & Radar Charts)
+function marks() {
+  const weakSubjects = SUBJ.filter(s => s.weak.length).sort((a, b) => pct(a) - pct(b));
+
+  return head('Examination Marks Breakdown & Diagnostic Insights', 'Mid-Term and End-Term scoring registers paired with diagnostic study plan tables') + `
+<!-- Table 1: Examination Results Register -->
+<div class="card mb-5">
+  <div class="flex items-center justify-between mb-3">
+    <div>
+      <h3 class="font-semibold text-base">📝 Examination Marks Breakdown Table</h3>
+      <p class="mut text-xs">Replaces stacked / grouped bar charts with verified examination score components</p>
+    </div>
+    <span class="text-xs mut">Weightage: Mid-Term (50) + End-Term (100) = 150 Total</span>
+  </div>
+  <div class="wrap">
+    <table>
+      <thead>
+        <tr>
+          <th class="txt-center">Code</th>
+          <th class="txt-left">Subject Title</th>
+          <th class="txt-right">Mid-Term (/50)</th>
+          <th class="txt-right">End-Term (/100)</th>
+          <th class="txt-right">Total Score (/150)</th>
+          <th class="txt-right">Aggregate %</th>
+          <th class="txt-center">Grade</th>
+          <th class="txt-right">Department Benchmark</th>
+          <th class="txt-right">Benchmark Variance</th>
+          <th class="txt-center">Performance Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${SUBJ.map(s => {
+          const p = pct(s);
+          const total = s.mid + s.end;
+          const diff = p - s.dept;
+          return `<tr>
+            <td class="txt-center font-mono text-xs mut font-semibold">${s.c}</td>
+            <td class="txt-left"><b>${s.n}</b></td>
+            <td class="txt-right">${s.mid}</td>
+            <td class="txt-right">${s.end}</td>
+            <td class="txt-right font-semibold">${total}</td>
+            <td class="txt-right font-bold">${p}%</td>
+            <td class="txt-center"><span class="px-2 py-0.5 rounded text-xs font-bold" style="background:${p < 60 ? '#fee2e2' : 'var(--soft)'};color:${p < 60 ? '#b91c1c' : '#4f46e5'}">${grade(p)}</span></td>
+            <td class="txt-right">${s.dept}%</td>
+            <td class="txt-right font-semibold ${diff >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${diff > 0 ? '+' + diff : diff}%</td>
+            <td class="txt-center">${p >= 80 ? badge('Outstanding', '#d1fae5', '#047857') : p >= 70 ? badge('Satisfactory', '#e0e7ff', '#3730a3') : badge('Underperforming', '#fee2e2', '#b91c1c')}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+      <tfoot>
+        <tr>
+          <td class="txt-center" colspan="2">Cumulative Total / Average</td>
+          <td class="txt-right">${totalMid} / ${totalMaxMid}</td>
+          <td class="txt-right">${totalEnd} / ${totalMaxEnd}</td>
+          <td class="txt-right">${grandTotalScore} / ${grandTotalMax}</td>
+          <td class="txt-right font-bold">${overallExamPct}%</td>
+          <td class="txt-center">${grade(overallExamPct)}</td>
+          <td class="txt-right">${deptAvg}%</td>
+          <td class="txt-right font-semibold ${myAvg >= deptAvg ? 'text-emerald-600' : 'text-rose-600'}">${myAvg - deptAvg >= 0 ? '+' + (myAvg - deptAvg) : (myAvg - deptAvg)}%</td>
+          <td class="txt-center">${statusBadge(overallExamPct)}</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+
+<!-- Table 2: AI Diagnostic Diagnostic Plan Table (Replaces Radar / Heatmap Chart) -->
+<div class="card" style="border-color:#818cf8">
+  <div class="flex items-center justify-between mb-3">
+    <div>
+      <div class="flex items-center gap-2">
+        <span class="text-xl">✨</span>
+        <h3 class="font-semibold text-base">AI Diagnostic Learning Plan Table</h3>
+      </div>
+      <p class="mut text-xs">Replaces competency radar chart with itemized topics, performance gaps, and actionable study steps</p>
+    </div>
+    <span class="text-xs mut">3 Subjects Flagged</span>
+  </div>
+  <div class="wrap">
+    <table>
+      <thead>
+        <tr>
+          <th class="txt-center">Code</th>
+          <th class="txt-left">Subject Title</th>
+          <th class="txt-right">Current Score</th>
+          <th class="txt-right">Dept Benchmark</th>
+          <th class="txt-right">Variance</th>
+          <th class="txt-left">Diagnosed Weak Topic Areas</th>
+          <th class="txt-left">Targeted Remedial Study Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${weakSubjects.map(s => {
+          const p = pct(s);
+          const diff = p - s.dept;
+          return `<tr>
+            <td class="txt-center font-mono text-xs mut font-semibold">${s.c}</td>
+            <td class="txt-left"><b>${s.n}</b></td>
+            <td class="txt-right font-semibold">${p}%</td>
+            <td class="txt-right">${s.dept}%</td>
+            <td class="txt-right font-semibold ${diff < 0 ? 'text-rose-600' : 'text-emerald-600'}">${diff > 0 ? '+' + diff : diff}%</td>
+            <td class="txt-left">
+              <div class="flex flex-wrap gap-1">
+                ${s.weak.map(w => `<span class="px-2 py-0.5 rounded text-xs font-semibold" style="background:#fee2e2;color:#b91c1c">${w}</span>`).join('')}
+              </div>
+            </td>
+            <td class="txt-left text-xs leading-relaxed">
+              ${diff < 0 ? `Trailing department by ${Math.abs(diff)} points. ` : ''}Devote 3 focused sessions per week to <b>${s.weak[0]}</b>; review past 5-year question papers and attend faculty office hours.
+            </td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+      <tfoot>
+        <tr>
+          <td class="txt-center" colspan="2">Focus Area Summary</td>
+          <td class="txt-right font-bold">${avg(weakSubjects.map(pct))}%</td>
+          <td class="txt-right">${avg(weakSubjects.map(s => s.dept))}%</td>
+          <td class="txt-right font-semibold text-rose-600">${avg(weakSubjects.map(pct)) - avg(weakSubjects.map(s => s.dept))}%</td>
+          <td class="txt-left font-normal text-xs" colspan="2">5 distinct sub-topics identified across 3 courses requiring focused revision</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>`;
+}
+
+// 4. LEADERBOARD VIEW (Replaces Horizontal Comparison Bars & Line Charts)
+function leaderboard() {
+  const cohortScores = board.map(b => b[1]);
+  const cohortTotal = cohortScores.reduce((a, b) => a + b, 0);
+  const cohortMean = Math.round(cohortTotal / cohortScores.length);
+
+  return head('Departmental Performance & Benchmark Registers', 'Relative standing analysis against CSE Semester ' + ME.sem + ' cohort (Total: ' + board.length + ' students)') + `
+<div class="grid sm:grid-cols-3 gap-4 mb-5">
+  ${stat('Your Department Rank', '#' + rank, 'Rank ' + rank + ' of ' + board.length + ' Enrolled Students')}
+  ${stat('Your Academic Average', myAvg + '%', 'Weighted performance across 5 subjects')}
+  ${stat('Cohort Average', cohortMean + '%', myAvg >= cohortMean ? 'You are +' + (myAvg - cohortMean) + '% above cohort average' : 'You are ' + (cohortMean - myAvg) + '% below cohort average')}
+</div>
+
+<div class="grid lg:grid-cols-2 gap-5">
+  <!-- Table 1: Course-by-Course Cohort Benchmark Table (Replaces Horizontal Bar Chart) -->
+  <div class="card">
+    <div class="flex items-center justify-between mb-3">
+      <div>
+        <h3 class="font-semibold text-base">📈 Course Cohort Comparison Table</h3>
+        <p class="mut text-xs">Replaces horizontal comparison bars with precise numerical variances</p>
+      </div>
+      <span class="text-xs mut">${SUBJ.length} Courses Evaluated</span>
+    </div>
+    <div class="wrap">
+      <table>
+        <thead>
+          <tr>
+            <th class="txt-center">Code</th>
+            <th class="txt-left">Subject Title</th>
+            <th class="txt-right">Your Score</th>
+            <th class="txt-right">Dept Avg</th>
+            <th class="txt-right">Variance</th>
+            <th class="txt-center">Standing Evaluation</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${SUBJ.map(s => {
+            const p = pct(s);
+            const diff = p - s.dept;
+            return `<tr>
+              <td class="txt-center font-mono text-xs mut font-semibold">${s.c}</td>
+              <td class="txt-left"><b>${s.n}</b></td>
+              <td class="txt-right font-bold">${p}%</td>
+              <td class="txt-right mut">${s.dept}%</td>
+              <td class="txt-right font-bold ${diff >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${diff > 0 ? '+' + diff : diff}%</td>
+              <td class="txt-center">${diff >= 5 ? badge('Ahead (+ ' + diff + '%)', '#d1fae5', '#047857') : diff >= 0 ? badge('On Par', '#e0e7ff', '#3730a3') : badge('Lagging (' + diff + '%)', '#fee2e2', '#b91c1c')}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td class="txt-center" colspan="2">Overall Cumulative Average</td>
+            <td class="txt-right font-bold">${myAvg}%</td>
+            <td class="txt-right font-bold">${deptAvg}%</td>
+            <td class="txt-right font-bold ${myAvg >= deptAvg ? 'text-emerald-600' : 'text-rose-600'}">${myAvg - deptAvg >= 0 ? '+' + (myAvg - deptAvg) : (myAvg - deptAvg)}%</td>
+            <td class="txt-center">${myAvg >= deptAvg ? badge('Above Dept Avg', '#d1fae5', '#047857') : badge('Below Dept Avg', '#fee2e2', '#b91c1c')}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+  <!-- Table 2: Department Cohort Leaderboard Table (Replaces Ranking Chart / Line Graph) -->
+  <div class="card">
+    <div class="flex items-center justify-between mb-3">
+      <div>
+        <h3 class="font-semibold text-base">🏆 Department Cohort Leaderboard Table</h3>
+        <p class="mut text-xs">Ranked order of all enrolled CSE Semester ${ME.sem} students</p>
+      </div>
+      <span class="text-xs mut">Top 10 Enrolled</span>
+    </div>
+    <div class="wrap">
+      <table>
+        <thead>
+          <tr>
+            <th class="txt-center">Rank</th>
+            <th class="txt-left">Student Name</th>
+            <th class="txt-right">Academic Score</th>
+            <th class="txt-right">Percentile Standing</th>
+            <th class="txt-center">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${board.map((r, i) => {
+            const me = r[0] === ME.name;
+            const percentile = Math.round(((board.length - i) / board.length) * 100);
+            return `<tr style="${me ? 'background:rgba(79,70,229,0.08);font-weight:700' : ''}">
+              <td class="txt-center font-bold">${i < 3 ? ['🥇 1st', '🥈 2nd', '🥉 3rd'][i] : '#' + (i + 1)}</td>
+              <td class="txt-left">${me ? `<span class="text-indigo-600 font-bold">${r[0]} (You)</span>` : r[0]}</td>
+              <td class="txt-right font-mono font-bold">${r[1]}%</td>
+              <td class="txt-right">${percentile}th</td>
+              <td class="txt-center">${i === 0 ? badge('Batch Topper', '#fef3c7', '#92400e') : me ? badge('Your Profile', '#e0e7ff', '#3730a3') : badge('Peer', '#f1f5f9', '#475569')}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td class="txt-center">Cohort Avg</td>
+            <td class="txt-left">10 Students Enrolled</td>
+            <td class="txt-right font-bold">${cohortMean}%</td>
+            <td class="txt-right font-normal text-xs">50th (Median)</td>
+            <td class="txt-center"><span class="text-xs mut">Full Cohort</span></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+</div>`;
+}
+
+// 5. FACULTY & ACADEMIC DIRECTORY
+const DEPT_BLOCK = {
+  block: 'Academic Block A (Turing Block)',
+  floors: '2nd & 3rd Floor',
+  hod: 'Dr. Kavita Menon',
+  hodCabin: 'A-301',
+  office: 'Mon–Fri, 9:00 AM – 5:00 PM'
+};
+
+const FAC = [
+  { c: 'CS301', name: 'Dr. Rajesh Kumar', g: 'M', role: 'Professor', cabin: 'A-204', block: 'Academic Block A', floor: '2nd Floor', email: 'rajesh.kumar@campus.edu', hours: 'Mon & Wed, 3–4 PM' },
+  { c: 'CS302', name: 'Dr. Priya Nair', g: 'F', role: 'Associate Professor', cabin: 'A-212', block: 'Academic Block A', floor: '2nd Floor', email: 'priya.nair@campus.edu', hours: 'Tue & Thu, 11 AM–12 PM' },
+  { c: 'CS303', name: 'Prof. Sanjay Gupta', g: 'M', role: 'Assistant Professor', cabin: 'A-305', block: 'Academic Block A', floor: '3rd Floor', email: 'sanjay.gupta@campus.edu', hours: 'Wed & Fri, 2–3 PM' },
+  { c: 'CS304', name: 'Dr. Meenakshi Rao', g: 'F', role: 'Associate Professor', cabin: 'A-308', block: 'Academic Block A', floor: '3rd Floor', email: 'meenakshi.rao@campus.edu', hours: 'Mon & Thu, 10–11 AM' },
+  { c: 'MA305', name: 'Dr. Anil Joshi', g: 'M', role: 'Professor', cabin: 'C-110', block: 'Science Block C', floor: '1st Floor', email: 'anil.joshi@campus.edu', hours: 'Tue & Fri, 1–2 PM' }
+];
+
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const FREE = {
+  CS301: [['Mon', '15:00', '16:00'], ['Wed', '15:00', '16:00'], ['Fri', '11:00', '12:00']],
+  CS302: [['Tue', '11:00', '12:00'], ['Thu', '11:00', '12:00'], ['Fri', '14:00', '15:00']],
+  CS303: [['Mon', '10:00', '11:00'], ['Wed', '14:00', '15:00'], ['Fri', '14:00', '15:00']],
+  CS304: [['Mon', '10:00', '11:00'], ['Tue', '15:00', '16:00'], ['Thu', '10:00', '11:00']],
+  MA305: [['Tue', '13:00', '14:00'], ['Wed', '11:00', '12:00'], ['Fri', '13:00', '14:00']]
+};
+
+const tm = s => { const a = s.split(':'); return +a[0] * 60 + +a[1]; };
+const fmt12 = m => { const h = Math.floor(m / 60); return ((h + 11) % 12 + 1) + ':' + String(m % 60).padStart(2, '0') + (h < 12 ? ' AM' : ' PM'); };
+const slotTxt = s => s[0] + ' ' + fmt12(tm(s[1])) + '–' + fmt12(tm(s[2]));
+
+function status(code) {
+  const n = new Date(), d = n.getDay(), m = n.getHours() * 60 + n.getMinutes(), sl = FREE[code];
+  const free = sl.some(s => DAYS.indexOf(s[0]) === d && tm(s[1]) <= m && m < tm(s[2]));
+  const off = s => { let o = ((DAYS.indexOf(s[0]) - d + 7) % 7) * 1440 + tm(s[1]) - m; return o <= 0 ? o + 10080 : o; };
+  const next = [...sl].sort((a, b) => off(a) - off(b))[0];
+  return { free, next };
+}
+
+function faculty() {
+  const D = DEPT_BLOCK;
+  return head('Faculty & Academic Directory', 'Course instructors, cabin locations, and consulting office hours') + `
+<div class="card mb-4" style="background:linear-gradient(120deg,#4f46e5,#6366f1);color:#fff;border:0">
+  <div class="text-xs opacity-80">DEPARTMENT OF COMPUTER SCIENCE & ENGINEERING</div>
+  <div class="text-xl font-bold mt-1">🏛️ ${D.block}</div>
+  <div class="grid sm:grid-cols-3 gap-3 mt-3 text-sm">
+    <div><span class="opacity-80">Floors</span><br><b>${D.floors}</b></div>
+    <div><span class="opacity-80">Head of Department</span><br><b>${D.hod} · Cabin ${D.hodCabin}</b></div>
+    <div><span class="opacity-80">Department Office Hours</span><br><b>${D.office}</b></div>
+  </div>
+</div>
+
+<div class="card mb-5">
+  <div class="flex items-center justify-between mb-3">
+    <div>
+      <h3 class="font-semibold text-base">🧑‍🏫 Faculty Office Hours & Cabin Directory Table</h3>
+      <p class="mut text-xs">Tabular listing of all course instructors, room locations, and availability</p>
+    </div>
+    <span class="text-xs mut">5 Course Faculty</span>
+  </div>
+  <div class="wrap">
+    <table>
+      <thead>
+        <tr>
+          <th class="txt-center">Course Code</th>
+          <th class="txt-left">Assigned Course</th>
+          <th class="txt-left">Faculty Name</th>
+          <th class="txt-left">Academic Rank</th>
+          <th class="txt-left">Cabin & Floor</th>
+          <th class="txt-left">Building</th>
+          <th class="txt-left">Consultation Hours</th>
+          <th class="txt-left">Institutional Email</th>
+          <th class="txt-center">Live Availability</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${FAC.map(f => {
+          const s = SUBJ.find(x => x.c === f.c);
+          const st = status(f.c);
+          return `<tr>
+            <td class="txt-center font-mono text-xs font-semibold mut">${f.c}</td>
+            <td class="txt-left"><b>${s.n}</b></td>
+            <td class="txt-left font-semibold">${f.name}</td>
+            <td class="txt-left mut text-xs">${f.role}</td>
+            <td class="txt-left font-semibold">${f.cabin} (${f.floor})</td>
+            <td class="txt-left text-xs">${f.block}</td>
+            <td class="txt-left text-xs">${f.hours}</td>
+            <td class="txt-left font-mono text-xs text-indigo-600">${f.email}</td>
+            <td class="txt-center">${st.free ? badge('🟢 Available Now', '#d1fae5', '#047857') : badge('Next: ' + slotTxt(st.next), '#f1f5f9', '#475569')}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+      <tfoot>
+        <tr>
+          <td class="txt-center" colspan="2">Faculty Total</td>
+          <td class="txt-left" colspan="7">5 Instructors across Turing Block (Block A) and Science Block C</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>`;
+}
+
+// ---------- Main Shell Layout ----------
+function appView() {
+  const v = { overview, attendance, marks, leaderboard, faculty }[S.tab]();
+  return `<div class="md:flex min-h-screen">
+<aside class="md:w-64 md:fixed md:inset-y-0 p-3 md:p-4 card" style="border-radius:0;border-width:0 1px 0 0">
+  <div class="flex items-center justify-between md:block">
+    <div class="flex items-center gap-2 md:mb-6 px-1">
+      <span class="text-2xl">🎓</span>
+      <b class="text-lg">CampusHub</b>
+    </div>
+    <button class="nav md:hidden" onclick="logout()">Logout</button>
+  </div>
+  <nav class="flex md:flex-col gap-1 overflow-x-auto mt-2 md:mt-0">
+    ${TABS.map(t => `<button class="nav ${S.tab === t[0] ? 'on' : ''}" onclick="go('${t[0]}')"><span>${t[1]}</span>${t[2]}</button>`).join('')}
+  </nav>
+  <div class="hidden md:block absolute bottom-4 left-4 right-4">
+    <div class="flex items-center gap-2.5 mb-3 p-2 rounded-xl soft">
+      <div class="w-9 h-9 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-sm">AS</div>
+      <div class="text-sm leading-tight">
+        <b>${ME.name}</b>
+        <div class="mut text-xs">${ME.roll}</div>
+      </div>
+    </div>
+    <button class="nav w-full justify-center" onclick="logout()">↩ Sign Out</button>
+  </div>
+</aside>
+<main class="flex-1 md:ml-64 p-4 md:p-8 max-w-6xl">${v}</main>
+</div>`;
+}
+
+// ---------- Navigation & Authentication Logic ----------
+function render() {
+  document.getElementById('app').innerHTML = S.user ? appView() : loginView();
+}
+
+function login(e) {
+  e.preventDefault();
+  const u = document.getElementById('u').value.trim().toUpperCase();
+  const p = document.getElementById('p').value;
+  if (!u || !p) {
+    S.err = 'Please enter both your roll number and password.';
+  } else if (USERS[u] && USERS[u].pw === p) {
+    S.user = u;
+    S.err = '';
+    S.tab = 'overview';
+  } else {
+    S.err = 'Invalid credentials. Please verify your roll number and password.';
+  }
+  render();
+}
+
+function logout() {
+  S.user = null;
+  render();
+}
+
+function go(t) {
+  S.tab = t;
+  render();
+  window.scrollTo(0, 0);
+}
+
+render();
+</script>
+</body>
+</html>
